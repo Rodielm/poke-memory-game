@@ -5,6 +5,6 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/poke-memory/',
+  base: '/poke-memory-game/',
   plugins: [react(), tailwindcss()],
 })
