@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Shuffle, RotateCcw } from 'lucide-react';
 
-// Pokémon data con URLs directas (sin necesidad de API)
+// =============================================================================
+// DATOS DEL JUEGO
+// =============================================================================
+// Usamos URLs directas de los sprites oficiales de PokeAPI (GitHub raw).
+// Esto evita hacer llamadas a una API externa y hace que la app sea más rápida.
+// Cada objeto tiene: id (para emparejar), name (para mostrar) e image (URL del sprite).
 const POKEMON_DATA = [
   { id: 1, name: 'Bulbasaur', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/1.png' },
   { id: 4, name: 'Charmander', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/4.png' },
@@ -13,53 +18,76 @@ const POKEMON_DATA = [
   { id: 151, name: 'Mew', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/151.png' }
 ];
 
+// =============================================================================
+// COMPONENTE PRINCIPAL
+// =============================================================================
 const PokemonMemoryGame = () => {
-  const [cards, setCards] = useState([]);
-  const [flipped, setFlipped] = useState([]);
-  const [matched, setMatched] = useState([]);
-  const [moves, setMoves] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // --- ESTADO DEL JUEGO (useState) ---
+  // React usa "estado" para recordar datos que cambian con el tiempo.
+  // Cuando el estado cambia, React re-renderiza el componente automáticamente.
 
+  const [cards, setCards] = useState([]);       // Todas las cartas del tablero (16 = 8 pares)
+  const [flipped, setFlipped] = useState([]);   // IDs de cartas actualmente volteadas (máx. 2)
+  const [matched, setMatched] = useState([]);   // IDs de cartas que ya fueron emparejadas
+  const [moves, setMoves] = useState(0);        // Contador de movimientos del jugador
+  const [loading, setLoading] = useState(true); // Pantalla de carga inicial
+
+  // --- EFECTO INICIAL (useEffect) ---
+  // useEffect con [] vacío se ejecuta UNA sola vez cuando el componente se monta.
+  // Es el lugar ideal para inicializar el juego.
   useEffect(() => {
     initGame();
   }, []);
 
+  // --- INICIALIZAR / REINICIAR JUEGO ---
   const initGame = () => {
     setLoading(true);
-    
-    // Crear las cartas duplicadas
+
+    // Paso 1: Duplicar los pokémon para crear pares
+    // El spread [...array] crea una copia. Hacemos 2 copias y las unimos.
+    // .map() agrega un uniqueId (posición en el array) y pairId (para saber qué cartas son pareja).
     const gameCards = [...POKEMON_DATA, ...POKEMON_DATA].map((pokemon, index) => ({
       ...pokemon,
-      uniqueId: index,
-      pairId: pokemon.id
+      uniqueId: index,   // Identificador único de cada carta (0-15)
+      pairId: pokemon.id // Identificador del par (las 2 cartas de Pikachu comparten pairId: 25)
     }));
-    
+
+    // Paso 2: Mezclar y resetear todo el estado
     setCards(shuffleArray(gameCards));
     setFlipped([]);
     setMatched([]);
     setMoves(0);
-    
-    // Simular carga mínima para suavidad visual
+
+    // Pequeño delay para suavizar la transición visual
     setTimeout(() => setLoading(false), 300);
   };
 
+  // --- ALGORITMO DE MEZCLA (Fisher-Yates Shuffle) ---
+  // Es el algoritmo estándar para mezclar arrays de forma uniforme.
+  // Recorre el array de atrás hacia adelante, intercambiando cada elemento
+  // con otro en una posición aleatoria anterior.
   const shuffleArray = (array) => {
     const newArray = [...array];
     for (let i = newArray.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
-      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]]; // Destructuring swap
     }
     return newArray;
   };
 
+  // --- LÓGICA AL HACER CLICK EN UNA CARTA ---
   const handleCardClick = (uniqueId) => {
+    // Guardas: ignorar click si ya hay 2 cartas volteadas, si la carta ya está
+    // volteada, o si la carta ya fue emparejada.
     if (flipped.length === 2 || flipped.includes(uniqueId) || matched.includes(uniqueId)) {
       return;
     }
 
+    // Agregar la carta clickeada a las volteadas
     const newFlipped = [...flipped, uniqueId];
     setFlipped(newFlipped);
 
+    // Si hay 2 cartas volteadas, verificar si son pareja
     if (newFlipped.length === 2) {
       setMoves(moves + 1);
       const [first, second] = newFlipped;
@@ -67,11 +95,13 @@ const PokemonMemoryGame = () => {
       const secondCard = cards.find(c => c.uniqueId === second);
 
       if (firstCard.pairId === secondCard.pairId) {
+        // Son pareja: moverlas a "matched" después de 600ms (para ver la animación)
         setTimeout(() => {
           setMatched([...matched, first, second]);
           setFlipped([]);
         }, 600);
       } else {
+        // No son pareja: voltearlas de regreso después de 1s (tiempo para memorizar)
         setTimeout(() => {
           setFlipped([]);
         }, 1000);
@@ -79,6 +109,7 @@ const PokemonMemoryGame = () => {
     }
   };
 
+  // --- PANTALLA DE CARGA ---
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center">
@@ -89,12 +120,19 @@ const PokemonMemoryGame = () => {
     );
   }
 
+  // --- VERIFICAR SI EL JUEGO TERMINÓ ---
+  // Si la cantidad de cartas emparejadas es igual al total, el jugador ganó.
   const isGameComplete = matched.length === cards.length;
 
+  // =============================================================================
+  // RENDER (JSX)
+  // =============================================================================
+  // JSX es la sintaxis que permite escribir "HTML" dentro de JavaScript.
+  // Tailwind CSS se usa para estilos: cada clase es una propiedad CSS (ej: "p-4" = padding: 1rem).
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 p-4 sm:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* --- HEADER: título, contadores y botón de reinicio --- */}
         <div className="text-center mb-8">
           <h1 className="text-4xl sm:text-5xl font-bold text-white mb-4 drop-shadow-lg">
             🎮 Pokémon Memory Game
@@ -120,7 +158,9 @@ const PokemonMemoryGame = () => {
           </button>
         </div>
 
-        {/* Victory Message */}
+        {/* --- MENSAJE DE VICTORIA ---
+            Renderizado condicional: {condición && <JSX>}
+            Solo se muestra si isGameComplete es true. */}
         {isGameComplete && (
           <div className="bg-yellow-300 border-4 border-yellow-500 rounded-lg p-6 mb-8 text-center animate-bounce">
             <h2 className="text-3xl font-bold text-purple-700 mb-2">
@@ -132,7 +172,9 @@ const PokemonMemoryGame = () => {
           </div>
         )}
 
-        {/* Game Grid */}
+        {/* --- GRID DE CARTAS ---
+            .map() renderiza una carta por cada elemento del array.
+            "key" es obligatorio en listas de React para identificar cada elemento. */}
         <div className="grid grid-cols-4 gap-3 sm:gap-4 max-w-4xl mx-auto">
           {cards.map((card) => {
             const isFlipped = flipped.includes(card.uniqueId) || matched.includes(card.uniqueId);
@@ -143,16 +185,17 @@ const PokemonMemoryGame = () => {
                 key={card.uniqueId}
                 onClick={() => handleCardClick(card.uniqueId)}
                 className="aspect-square cursor-pointer"
-                style={{ perspective: '1000px' }}
+                style={{ perspective: '1000px' }} // perspective habilita el efecto 3D
               >
+                {/* Contenedor de la carta con animación de giro (flip) via CSS transform */}
                 <div
                   className="relative w-full h-full transition-transform duration-500"
                   style={{
-                    transformStyle: 'preserve-3d',
+                    transformStyle: 'preserve-3d', // Permite que los hijos tengan profundidad 3D
                     transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)'
                   }}
                 >
-                  {/* Card Back */}
+                  {/* CARA TRASERA (Pokeball) - visible cuando la carta NO está volteada */}
                   <div
                     className="absolute w-full h-full bg-gradient-to-br from-red-500 to-red-700 rounded-xl shadow-lg flex items-center justify-center backface-hidden border-4 border-yellow-400"
                     style={{ backfaceVisibility: 'hidden' }}
@@ -164,7 +207,10 @@ const PokemonMemoryGame = () => {
                     />
                   </div>
 
-                  {/* Card Front */}
+                  {/* CARA FRONTAL (Pokémon) - visible cuando la carta SÍ está volteada
+                      backfaceVisibility: 'hidden' + transform: rotateY(180deg) es el truco CSS
+                      que hace funcionar el efecto flip. Ambas caras se superponen, pero solo
+                      una es visible según la rotación del contenedor padre. */}
                   <div
                     className={`absolute w-full h-full rounded-xl shadow-lg flex flex-col items-center justify-center p-2 backface-hidden border-4 ${
                       isMatched ? 'bg-gradient-to-br from-green-300 to-green-500 border-green-600' : 'bg-white border-gray-300'
